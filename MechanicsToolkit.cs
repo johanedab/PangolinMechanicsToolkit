@@ -251,20 +251,26 @@ namespace Pangolin
         [UI_Toggle(disabledText = "Locked", enabledText = "Unlocked")]
         public bool unlockAngularZ = false;
 
-        JointDrive jointDriveUnlocked;
-        JointDrive jointDriveOriginalX;
-        JointDrive jointDriveOriginalY;
-        JointDrive jointDriveOriginalZ;
-        JointDrive jointDriveOriginalAngularX;
-        JointDrive jointDriveOriginalAngularYZ;
-        ConfigurableJointMotion jointMotionOriginalX;
-        ConfigurableJointMotion jointMotionOriginalY;
-        ConfigurableJointMotion jointMotionOriginalZ;
-        ConfigurableJointMotion jointMotionOriginalAngularX;
-        ConfigurableJointMotion jointMotionOriginalAngularY;
-        ConfigurableJointMotion jointMotionOriginalAngularZ;
+        class ConfigurableJointInfo
+        {
+            public JointDrive xDrive;
+            public JointDrive yDrive;
+            public JointDrive zDrive;
+            public ConfigurableJointMotion xMotion;
+            public ConfigurableJointMotion yMotion;
+            public ConfigurableJointMotion zMotion;
+            public JointDrive angularXDrive;
+            public JointDrive angularYZDrive;
+            public ConfigurableJointMotion angularXMotion;
+            public ConfigurableJointMotion angularYMotion;
+            public ConfigurableJointMotion angularZMotion;
+        }
+        ConfigurableJointInfo originalJoint;
 
-        private ModuleAnimateGeneric moduleAnimateGeneric;
+        JointDrive jointDriveUnlocked;
+
+        ModuleAnimateGeneric moduleAnimateGeneric;
+        PartModule animatedAttachment;
 
         private void InitCollisionMode()
         {
@@ -280,12 +286,23 @@ namespace Pangolin
         }
         List<ColliderInfo> colliderInfos;
 
-        private void InitAnimationStopper()
+        PartModule GetPartModule(string name)
         {
             // Check if this part has any generic animations
             foreach (PartModule partModule in part.Modules)
-                if (partModule.moduleName == "ModuleAnimateGeneric")
-                    moduleAnimateGeneric = (ModuleAnimateGeneric)partModule;
+                if (partModule.moduleName == name)
+                    return partModule;
+            return null;
+        }
+
+        private void InitAnimationStopper()
+        {
+            // Check if this part has any generic animations
+            moduleAnimateGeneric = (ModuleAnimateGeneric) GetPartModule("ModuleAnimateGeneric");
+            animatedAttachment = GetPartModule("AnimatedAttachment");
+
+            printf("InitAnimationStopper: %s",
+                animatedAttachment != null ? animatedAttachment.name : "null");
 
             if (!moduleAnimateGeneric)
             {
@@ -309,6 +326,13 @@ namespace Pangolin
         {
             if (part.attachJoint)
             {
+                // Hold on copying joint settings until AnimatedAttachment had a chance to initalize it, if installed
+                if (animatedAttachment)
+                    if (part.attachJoint.Joint.name != "AnimatedAttachment")
+                        return;
+
+                printf("Copying joint");
+
                 // Add a callback for changes int the joint setting
                 Fields[nameof(unlockX)].uiControlFlight.onFieldChanged = OnJointChanged;
                 Fields[nameof(unlockY)].uiControlFlight.onFieldChanged = OnJointChanged;
@@ -326,19 +350,27 @@ namespace Pangolin
 
                 // Create a new joint with settings from the cfg file or user selection
                 ConfigurableJoint joint = part.attachJoint.Joint;
-                jointDriveOriginalX = joint.xDrive;
-                jointDriveOriginalY = joint.yDrive;
-                jointDriveOriginalZ = joint.zDrive;
-                jointDriveOriginalAngularX = joint.angularXDrive;
-                jointDriveOriginalAngularYZ = part.attachJoint.Joint.angularYZDrive;
+                originalJoint = new ConfigurableJointInfo();
 
-                jointMotionOriginalX = joint.xMotion;
-                jointMotionOriginalY = joint.yMotion;
-                jointMotionOriginalZ = joint.zMotion;
+                printf("InitJointUnlocker: %s %s %s %s",
+                    joint.xDrive,
+                    joint.xMotion,
+                    originalJoint.xDrive.positionSpring,
+                    originalJoint.xMotion);
 
-                jointMotionOriginalAngularX = joint.angularXMotion;
-                jointMotionOriginalAngularY = joint.angularYMotion;
-                jointMotionOriginalAngularZ = joint.angularZMotion;
+                originalJoint.xDrive = joint.xDrive;
+                originalJoint.yDrive = joint.yDrive;
+                originalJoint.zDrive = joint.zDrive;
+                originalJoint.angularXDrive = joint.angularXDrive;
+                originalJoint.angularYZDrive = part.attachJoint.Joint.angularYZDrive;
+
+                originalJoint.xMotion = joint.xMotion;
+                originalJoint.yMotion = joint.yMotion;
+                originalJoint.zMotion = joint.zMotion;
+
+                originalJoint.angularXMotion = joint.angularXMotion;
+                originalJoint.angularYMotion = joint.angularYMotion;
+                originalJoint.angularZMotion = joint.angularZMotion;
 
                 // Create an empty joint drive for unlocked parts
                 jointDriveUnlocked = new JointDrive();
@@ -360,11 +392,18 @@ namespace Pangolin
 
         public override void OnStartFinished(PartModule.StartState state)
         {
-            base.OnStart(state);
+            base.OnStartFinished(state);
+
+            printf("OnStartFinished");
 
             InitCollisionMode();
             InitAnimationStopper();
-            InitJointUnlocker();
+        }
+
+        void FixedUpdate()
+        {
+            if (originalJoint == null)
+                InitJointUnlocker();
         }
 
         ColliderInfo GetColliderInfo(Collider collider)
@@ -428,21 +467,113 @@ namespace Pangolin
 
             ConfigurableJoint joint = part.attachJoint.Joint;
 
+            printf("Joint: %s %s",
+                part.attachJoint.Joint,
+                part.attachJoint.Joint ? part.attachJoint.Joint.name : "null");
+
+            part.attachJoint.Joint.name = "MechanicsToolkit";
+
+            printf("Unlocks: %s, %s, %s",
+                originalJoint.xMotion,
+                originalJoint.yMotion,
+                originalJoint.zMotion);
+
+            printf("Unlocks: %s, %s, %s",
+                originalJoint.xDrive,
+                originalJoint.yDrive,
+                originalJoint.zDrive);
+
+            printf("Unlocks: %s, %s, %s",
+                originalJoint.angularXMotion,
+                originalJoint.angularYMotion,
+                originalJoint.angularZMotion);
+
+            printf("Unlocks: %s, %s",
+                originalJoint.angularXDrive,
+                originalJoint.angularYZDrive);
+
             // Unlock the rotation
-            joint.xMotion = unlockX ? ConfigurableJointMotion.Free : jointMotionOriginalX;
-            joint.yMotion = unlockY ? ConfigurableJointMotion.Free : jointMotionOriginalY;
-            joint.zMotion = unlockZ ? ConfigurableJointMotion.Free : jointMotionOriginalZ;
+            if (unlockX)
+            {
+                originalJoint.xMotion = joint.xMotion;
+                originalJoint.xDrive = joint.xDrive;
+                joint.xMotion = ConfigurableJointMotion.Free;
+                joint.xDrive = jointDriveUnlocked;
+            }
+            else
+            {
+                joint.xMotion = originalJoint.xMotion;
+                joint.xDrive = originalJoint.xDrive;
+            }
 
-            joint.angularXMotion = unlockAngularX ? ConfigurableJointMotion.Free : jointMotionOriginalAngularX;
-            joint.angularYMotion = unlockAngularY ? ConfigurableJointMotion.Free : jointMotionOriginalAngularY;
-            joint.angularZMotion = unlockAngularZ ? ConfigurableJointMotion.Free : jointMotionOriginalAngularZ;
+            if (unlockY)
+            {
+                originalJoint.yMotion = joint.yMotion;
+                originalJoint.yDrive = joint.yDrive;
+                joint.yMotion = ConfigurableJointMotion.Free;
+                joint.yDrive = jointDriveUnlocked;
+            }
+            else
+            {
+                joint.yMotion = originalJoint.yMotion;
+                joint.yDrive = originalJoint.yDrive;
+            }
 
-            joint.xDrive = unlockX ? jointDriveUnlocked : jointDriveOriginalX;
-            joint.yDrive = unlockY ? jointDriveUnlocked : jointDriveOriginalY;
-            joint.zDrive = unlockZ ? jointDriveUnlocked : jointDriveOriginalZ;
+            if (unlockZ)
+            {
+                originalJoint.zMotion = joint.zMotion;
+                originalJoint.zDrive = joint.zDrive;
+                joint.zMotion = ConfigurableJointMotion.Free;
+                joint.zDrive = jointDriveUnlocked;
+            }
+            else
+            {
+                joint.zMotion = originalJoint.zMotion;
+                joint.zDrive = originalJoint.zDrive;
+            }
 
-            joint.angularXDrive = unlockAngularX ? jointDriveUnlocked : jointDriveOriginalAngularX;
-            joint.angularYZDrive = unlockAngularY || unlockAngularZ ? jointDriveUnlocked : jointDriveOriginalAngularYZ;
+            if (unlockAngularX)
+            {
+                originalJoint.angularXMotion = joint.angularXMotion;
+                originalJoint.angularXDrive = joint.angularXDrive;
+                joint.angularXMotion = ConfigurableJointMotion.Free;
+                joint.angularXDrive = jointDriveUnlocked;
+            }
+            else
+            {
+                joint.angularXMotion = originalJoint.angularXMotion;
+                joint.angularXDrive = originalJoint.angularXDrive;
+            }
+
+            if (unlockAngularY)
+            {
+                originalJoint.angularYMotion = joint.angularYMotion;
+                joint.angularYMotion = ConfigurableJointMotion.Free;
+            }
+            else
+            {
+                joint.angularYMotion = originalJoint.angularYMotion;
+            }
+
+            if (unlockAngularZ)
+            {
+                originalJoint.angularZMotion = joint.angularZMotion;
+                joint.angularZMotion = ConfigurableJointMotion.Free;
+            }
+            else
+            {
+                joint.angularZMotion = originalJoint.angularZMotion;
+            }
+
+            if (unlockAngularY || unlockAngularZ)
+            {
+                originalJoint.angularYZDrive = joint.angularYZDrive;
+                joint.angularYZDrive = jointDriveUnlocked;
+            }
+            else
+            {
+                joint.angularYZDrive = originalJoint.angularYZDrive;
+            }
         }
     }
 }

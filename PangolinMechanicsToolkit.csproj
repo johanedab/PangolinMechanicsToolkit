@@ -7,8 +7,8 @@
     <ProjectGuid>{CB91236F-13C2-4235-B280-6CE49155FC4F}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>MechanicToolkit</RootNamespace>
-    <AssemblyName>MechanicToolkit</AssemblyName>
+    <RootNamespace>PangolinMechanicsToolkit</RootNamespace>
+    <AssemblyName>PangolinMechanicsToolkit</AssemblyName>
     <TargetFrameworkVersion>v3.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
   </PropertyGroup>
@@ -16,7 +16,7 @@
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
-    <OutputPath>C:\Program Files %28x86%29\Steam\steamapps\common\Kerbal Space Program Dev\GameData\MechanicsToolkit\Plugins\</OutputPath>
+    <OutputPath>C:\Program Files %28x86%29\Steam\steamapps\common\Kerbal Space Program Dev\GameData\PangolinMechanicsToolkit\Plugins\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
