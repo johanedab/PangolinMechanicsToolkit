@@ -81,21 +81,8 @@ namespace Pangolin
                             bool addCollider = (collider.gameObject.activeInHierarchy && collider.enabled)
                              || ((hasEVA && (collider.tag == "Ladder" || collider.tag == "Airlock")));
 
-                            /*
-                            printf("Collider: %s.%s, %s, %s, %s, %s -> %s",
-                                part.name,
-                                collider.gameObject.name,
-                                collider.gameObject.activeInHierarchy,
-                                collider.enabled,
-                                hasEVA,
-                                collider.tag,
-                                addCollider);
-                            */
-
                             if (addCollider)
-                            {
                                 partInfo.colliderList.Add(collider);
-                            }
                         }
                     }
                 }
@@ -150,17 +137,6 @@ namespace Pangolin
 
                                 if (!active[(int)part1.collisionMode][(int)part2.collisionMode])
                                     ignore = true;
-
-                                /*
-                                printf("ignore: %s/%s, %s, %s, %s->%s,%s",
-                                    part1.part.name,
-                                    part2.part.name,
-                                    part1.collisionMode,
-                                    part2.collisionMode,
-                                    adjacent,
-                                    active[(int)part1.collisionMode][(int)part2.collisionMode],
-                                    ignore);
-                                */
                             }
 
                             for (int c1 = 0; c1 < part1.colliderList.Count; c1++)
@@ -171,28 +147,12 @@ namespace Pangolin
                                     Collider collider2 = part2.colliderList[c2];
 
                                     Physics.IgnoreCollision(collider1, collider2, ignore);
-
-                                    /*
-                                    printf("IgnoreCollision: %s.%s (%s %s)/%s.%s (%s %s)",
-                                        collider1.attachedRigidbody ? collider1.attachedRigidbody.name : null,
-                                        collider1.name,
-                                        collider1.gameObject.name,
-                                        collider1.gameObject.layer,
-                                        collider2.attachedRigidbody ? collider2.attachedRigidbody.name : null,
-                                        collider2.name,
-                                        collider2.gameObject.name,
-                                        collider2.gameObject.layer);
-                                    */
                                 }
                             }
                         }
                     }
                 }
             }
-            /*
-            printf(" Physics.GetIgnoreLayerCollision(0,0): %s",
-                 Physics.GetIgnoreLayerCollision(0, 0));
-            */
         }
 
         private void Start()
@@ -266,6 +226,7 @@ namespace Pangolin
             public ConfigurableJointMotion angularZMotion;
         }
         ConfigurableJointInfo originalJoint;
+        ConfigurableJoint joint;
 
         JointDrive jointDriveUnlocked;
 
@@ -283,6 +244,7 @@ namespace Pangolin
         {
             public Collider collider;
             public PosRot posRot;
+            internal Part part;
         }
         List<ColliderInfo> colliderInfos;
 
@@ -313,12 +275,24 @@ namespace Pangolin
 
             // Save a list of all the colliders to keep track of the position 
             colliderInfos = new List<ColliderInfo>();
+            AddColliders(colliderInfos, part);
+        }
+
+        private void AddColliders(List<ColliderInfo> colliderInfos, Part part)
+        {
+            printf("Adding part %s to collider list", part.name);
+
             foreach (Collider collider in part.GetPartColliders())
             {
                 ColliderInfo colliderInfo = new ColliderInfo();
                 colliderInfo.collider = collider;
+                colliderInfo.part = part;
                 colliderInfo.posRot = PosRot.GetPosRot(collider.transform, part);
                 colliderInfos.Add(colliderInfo);
+            }
+            foreach (Part child in part.children)
+            {
+                AddColliders(colliderInfos, child);
             }
         }
 
@@ -334,12 +308,12 @@ namespace Pangolin
                 printf("Copying joint");
 
                 // Add a callback for changes int the joint setting
-                Fields[nameof(unlockX)].uiControlFlight.onFieldChanged = OnJointChanged;
-                Fields[nameof(unlockY)].uiControlFlight.onFieldChanged = OnJointChanged;
-                Fields[nameof(unlockZ)].uiControlFlight.onFieldChanged = OnJointChanged;
-                Fields[nameof(unlockAngularX)].uiControlFlight.onFieldChanged = OnJointChanged;
-                Fields[nameof(unlockAngularY)].uiControlFlight.onFieldChanged = OnJointChanged;
-                Fields[nameof(unlockAngularZ)].uiControlFlight.onFieldChanged = OnJointChanged;
+                Fields[nameof(unlockX)].uiControlFlight.onFieldChanged = OnJointChangedX;
+                Fields[nameof(unlockY)].uiControlFlight.onFieldChanged = OnJointChangedY;
+                Fields[nameof(unlockZ)].uiControlFlight.onFieldChanged = OnJointChangedZ;
+                Fields[nameof(unlockAngularX)].uiControlFlight.onFieldChanged = OnJointChangedAngularX;
+                Fields[nameof(unlockAngularY)].uiControlFlight.onFieldChanged = OnJointChangedAngularY;
+                Fields[nameof(unlockAngularZ)].uiControlFlight.onFieldChanged = OnJointChangedAngularZ;
 
                 Fields[nameof(unlockX)].guiActive = true;
                 Fields[nameof(unlockY)].guiActive = true;
@@ -349,7 +323,7 @@ namespace Pangolin
                 Fields[nameof(unlockAngularZ)].guiActive = true;
 
                 // Create a new joint with settings from the cfg file or user selection
-                ConfigurableJoint joint = part.attachJoint.Joint;
+                joint = part.attachJoint.Joint;
                 originalJoint = new ConfigurableJointInfo();
 
                 printf("InitJointUnlocker: %s %s %s %s",
@@ -375,7 +349,7 @@ namespace Pangolin
                 // Create an empty joint drive for unlocked parts
                 jointDriveUnlocked = new JointDrive();
                 jointDriveUnlocked.maximumForce = 0;
-                jointDriveUnlocked.positionDamper = 0;
+                jointDriveUnlocked.positionDamper = 1000;
                 jointDriveUnlocked.positionSpring = 0;
             }
             else
@@ -427,27 +401,40 @@ namespace Pangolin
             {
                 ColliderInfo thisColliderInfo = GetColliderInfo(contact.thisCollider);
 
-                PosRot currentPosRot = PosRot.GetPosRot(thisColliderInfo.collider.transform, part);
-                Vector3 movement = currentPosRot.position - thisColliderInfo.posRot.position;
-                double angle = Quaternion.Angle(currentPosRot.rotation, thisColliderInfo.posRot.rotation);
+                // Check if this is an internal collider moving in respect to the part,
+                // or if it is a child part moving due to being animated by AnimatedAttachment
+                if (thisColliderInfo.part == part)
+                {
+                    PosRot currentPosRot = PosRot.GetPosRot(thisColliderInfo.collider.transform, part);
+                    Vector3 movement = currentPosRot.position - thisColliderInfo.posRot.position;
+                    double angle = Quaternion.Angle(currentPosRot.rotation, thisColliderInfo.posRot.rotation);
 
-                thisColliderInfo.posRot = currentPosRot;
+                    thisColliderInfo.posRot = currentPosRot;
 
-                // Set a minimum level
-                if (movement.IsSmallerThan(0.1f) && angle < 0.1)
-                    continue;
+                    // Set a minimum level
+                    if (movement.IsSmallerThan(0.1f) && angle < 0.1)
+                        continue;
 
-                printf("Animation stopped by a collision between %s and %s (movement %s, angle %s)",
-                    thisColliderInfo.collider.name,
-                    collisionInfo.collider.name,
-                    movement,
-                    angle);
+                    printf("Animation stopped by a collision between %s and %s (movement %s, angle %s)",
+                        thisColliderInfo.collider.name,
+                        collisionInfo.collider.name,
+                        movement,
+                        angle);
+                }
+                else
+                {
+                    printf("Animation stopped by a collision between %s.%s and %s",
+                        thisColliderInfo.part.name,
+                        thisColliderInfo.collider.name,
+                        collisionInfo.collider.name);
+                }
 
                 float time = moduleAnimateGeneric.animTime;
                 if (moduleAnimateGeneric.revClampPercent)
                     time = 1 - time;
                 moduleAnimateGeneric.deployPercent = 100.0f * time;
                 moduleAnimateGeneric.allowDeployLimit = true;
+                break;
             }
         }
 
@@ -457,42 +444,11 @@ namespace Pangolin
             GameEvents.OnCollisionIgnoreUpdate.Fire();
         }
 
-        private void OnJointChanged(BaseField field, object obj)
+        private void OnJointChangedX(BaseField field, object obj)
         {
-            printf("OnJointChanged: %s, %s, %s",
-                field, obj, part.attachJoint);
-
             if (!part.attachJoint)
                 return;
 
-            ConfigurableJoint joint = part.attachJoint.Joint;
-
-            printf("Joint: %s %s",
-                part.attachJoint.Joint,
-                part.attachJoint.Joint ? part.attachJoint.Joint.name : "null");
-
-            part.attachJoint.Joint.name = "MechanicsToolkit";
-
-            printf("Unlocks: %s, %s, %s",
-                originalJoint.xMotion,
-                originalJoint.yMotion,
-                originalJoint.zMotion);
-
-            printf("Unlocks: %s, %s, %s",
-                originalJoint.xDrive,
-                originalJoint.yDrive,
-                originalJoint.zDrive);
-
-            printf("Unlocks: %s, %s, %s",
-                originalJoint.angularXMotion,
-                originalJoint.angularYMotion,
-                originalJoint.angularZMotion);
-
-            printf("Unlocks: %s, %s",
-                originalJoint.angularXDrive,
-                originalJoint.angularYZDrive);
-
-            // Unlock the rotation
             if (unlockX)
             {
                 originalJoint.xMotion = joint.xMotion;
@@ -505,7 +461,10 @@ namespace Pangolin
                 joint.xMotion = originalJoint.xMotion;
                 joint.xDrive = originalJoint.xDrive;
             }
+        }
 
+        private void OnJointChangedY(BaseField field, object obj)
+        {
             if (unlockY)
             {
                 originalJoint.yMotion = joint.yMotion;
@@ -518,7 +477,10 @@ namespace Pangolin
                 joint.yMotion = originalJoint.yMotion;
                 joint.yDrive = originalJoint.yDrive;
             }
+        }
 
+        private void OnJointChangedZ(BaseField field, object obj)
+        {
             if (unlockZ)
             {
                 originalJoint.zMotion = joint.zMotion;
@@ -531,7 +493,11 @@ namespace Pangolin
                 joint.zMotion = originalJoint.zMotion;
                 joint.zDrive = originalJoint.zDrive;
             }
+        }
 
+        private void OnJointChangedAngularX(BaseField field, object obj)
+        {
+            /*
             if (unlockAngularX)
             {
                 originalJoint.angularXMotion = joint.angularXMotion;
@@ -544,7 +510,24 @@ namespace Pangolin
                 joint.angularXMotion = originalJoint.angularXMotion;
                 joint.angularXDrive = originalJoint.angularXDrive;
             }
+            */
+            jointDriveUnlocked = new JointDrive();
+            jointDriveUnlocked.maximumForce = 0;
+            jointDriveUnlocked.positionDamper = 100000;
+            jointDriveUnlocked.positionSpring = 0;
 
+            joint.angularXMotion = ConfigurableJointMotion.Free;
+            joint.angularXDrive = jointDriveUnlocked;
+            printf("OnJointChangedAngularX: %s, %s, %s, %s, %s",
+                joint.angularXMotion,
+                joint.angularXDrive.positionSpring,
+                joint.angularXDrive.positionDamper,
+                joint.angularXLimitSpring,
+                joint.linearLimit);
+        }
+
+        private void OnJointChangedAngularY(BaseField field, object obj)
+        {
             if (unlockAngularY)
             {
                 originalJoint.angularYMotion = joint.angularYMotion;
@@ -555,20 +538,37 @@ namespace Pangolin
                 joint.angularYMotion = originalJoint.angularYMotion;
             }
 
+            UpdateJointUnlockAngularYZ();
+        }
+
+        private void OnJointChangedAngularZ(BaseField field, object obj)
+        {
             if (unlockAngularZ)
             {
-                originalJoint.angularZMotion = joint.angularZMotion;
-                joint.angularZMotion = ConfigurableJointMotion.Free;
+                if (joint.angularXMotion != ConfigurableJointMotion.Free)
+                {
+                    originalJoint.angularZMotion = joint.angularZMotion;
+                    joint.angularZMotion = ConfigurableJointMotion.Free;
+                }
             }
             else
             {
                 joint.angularZMotion = originalJoint.angularZMotion;
             }
 
+            UpdateJointUnlockAngularYZ();
+        }
+
+        private void UpdateJointUnlockAngularYZ()
+        {
             if (unlockAngularY || unlockAngularZ)
             {
-                originalJoint.angularYZDrive = joint.angularYZDrive;
-                joint.angularYZDrive = jointDriveUnlocked;
+                // Make sure not to over write original joint data in case both axis were activated
+                if (unlockAngularY ^ unlockAngularZ)
+                {
+                    originalJoint.angularYZDrive = joint.angularYZDrive;
+                    joint.angularYZDrive = jointDriveUnlocked;
+                }
             }
             else
             {
