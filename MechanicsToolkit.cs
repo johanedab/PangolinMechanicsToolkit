@@ -55,6 +55,9 @@ namespace Pangolin
                 vesselInfo.vessel = vessel;
                 vesselList.vesselList.Add(vesselInfo);
 
+                printf("Vessel: %s",
+                    vessel.name);
+
                 foreach (Part part in vessel.parts)
                 {
                     VesselList.VesselInfo.PartInfo partInfo = new VesselList.VesselInfo.PartInfo();
@@ -92,6 +95,8 @@ namespace Pangolin
 
         private void OnCollisionIgnoreUpdate()
         {
+            printf("OnCollisionIgnoreUpdate");
+
             VesselList vesselList = GetAllVesselColliders();
 
             // Iterate through the created list of vessels/parts/colliders and enable collisions between them
@@ -112,7 +117,7 @@ namespace Pangolin
 
                             bool ignore = false;
 
-                            if (vessel1 == vessel2)
+                            //if (vessel1 == vessel2)
                             {
                                 /*
                                 bool adjacent = false;
@@ -137,6 +142,8 @@ namespace Pangolin
 
                                 if (!active[(int)part1.collisionMode][(int)part2.collisionMode])
                                     ignore = true;
+                                else
+                                    ignore = false;
                             }
 
                             for (int c1 = 0; c1 < part1.colliderList.Count; c1++)
@@ -147,6 +154,13 @@ namespace Pangolin
                                     Collider collider2 = part2.colliderList[c2];
 
                                     Physics.IgnoreCollision(collider1, collider2, ignore);
+
+                                    printf("ignore: %s.%s / %s.%s -> %s",
+                                        part1.part.name,
+                                        collider1.name,
+                                        part2.part.name,
+                                        collider2.name,
+                                        ignore);
                                 }
                             }
                         }
@@ -368,7 +382,7 @@ namespace Pangolin
         {
             base.OnStartFinished(state);
 
-            printf("OnStartFinished");
+            printf("*** PangolinMechanicsToolkit_v{0}:LoadConfig ***", Assembly.GetExecutingAssembly().GetName().Version);
 
             InitCollisionMode();
             InitAnimationStopper();
@@ -513,7 +527,7 @@ namespace Pangolin
             */
             jointDriveUnlocked = new JointDrive();
             jointDriveUnlocked.maximumForce = 0;
-            jointDriveUnlocked.positionDamper = 100000;
+            jointDriveUnlocked.positionDamper = 0;
             jointDriveUnlocked.positionSpring = 0;
 
             joint.angularXMotion = ConfigurableJointMotion.Free;
@@ -574,6 +588,10 @@ namespace Pangolin
             {
                 joint.angularYZDrive = originalJoint.angularYZDrive;
             }
+            printf("joint: %s, %s, %s",
+                joint.angularYMotion,
+                joint.angularZMotion,
+                joint.angularYZDrive.positionSpring);
         }
     }
 }

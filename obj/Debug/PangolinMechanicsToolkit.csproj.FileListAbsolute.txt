@@ -1,0 +1,6 @@
+C:\Program Files (x86)\Steam\steamapps\common\Kerbal Space Program Dev\GameData\PangolinMechanicsToolkit\Plugins\PangolinMechanicsToolkit.dll
+C:\Program Files (x86)\Steam\steamapps\common\Kerbal Space Program Dev\GameData\PangolinMechanicsToolkit\Plugins\PangolinMechanicsToolkit.pdb
+D:\Dropbox (Personal)\KSP\VC\PangolinMechanicsToolkit\obj\Debug\PangolinMechanicsToolkit.csproj.CoreCompileInputs.cache
+D:\Dropbox (Personal)\KSP\VC\PangolinMechanicsToolkit\obj\Debug\PangolinMechanicsToolkit.csproj.CopyComplete
+D:\Dropbox (Personal)\KSP\VC\PangolinMechanicsToolkit\obj\Debug\PangolinMechanicsToolkit.dll
+D:\Dropbox (Personal)\KSP\VC\PangolinMechanicsToolkit\obj\Debug\PangolinMechanicsToolkit.pdb
